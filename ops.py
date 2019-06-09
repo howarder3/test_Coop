@@ -57,6 +57,8 @@ def gen_decode_conv2d(input_image, output_dim, name="gen_decode_conv2d"):
 		# stride = 2*2 moving steps
 		decode_conv_result = tf.nn.conv2d_transpose(input_image, weight, strides=[1,2,2,1], output_shape=output_shape)
 
+		print(output_shape)
+
 		# output_dim: how many pictures output
 		decode_bias = tf.get_variable('bias', [output_dim], initializer=tf.constant_initializer(0.0))
 
