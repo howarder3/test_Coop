@@ -128,7 +128,8 @@ class Coop_pix2pix(object):
 	def build_model(self):
 
 		# generator 
-		self.generated_B = self.generator(self.input_real_data_A, reuse = False)
+		self.encoder_output_mu, self.encoder_output = self.generator_encoder(self.input_real_data_A, reuse = False)
+		self.generated_B = self.generator_decoder(self.encoder_output, reuse = False)
 
 		# descriptor
 		described_real_data_B = self.descriptor(self.input_real_data_B, reuse=False)
@@ -333,60 +334,8 @@ class Coop_pix2pix(object):
 			# print('Epoch #{:d}, avg.descriptor loss: {:.4f}, avg.generator loss: {:.4f}, avg.L2 distance: {:4.4f}, '
 			# 	'time: {:.2f}s'.format(epoch, np.mean(des_loss_avg), np.mean(gen_loss_avg), np.mean(mse_avg), time.time() - start_time))
 
-
-
-	def generator(self, input_image, reuse=False):
+	def generator_decoder(self, input_image, reuse=False):
 		with tf.variable_scope("gen", reuse=reuse):
-
-			# print("\n------  generator layers shape  ------\n")
-			# print("input_image shape: {}".format(input_image.shape))
-
-
-			num_filter = 64
-
-			# ---------- encoder part ----------
-			# gen_encode_conv2d(input_image, output_dimension (by how many filters), scope_name)
-			# input image = [batch_size, 256, 256, input_pic_dim]
-
-			# gen_encode_layer_1_output = (batch_size, 128, 128, num_filter)
-			gen_encode_layer_1_conv = gen_encode_conv2d(input_image, num_filter, name='gen_encode_layer_1_conv') 
-
-			# gen_encode_layer_2_output = (batch_size, 64, 64, num_filter*2)
-			gen_encode_layer_2_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_1_conv), num_filter*2, name='gen_encode_layer_2_conv') 
-			gen_encode_layer_2_batchnorm = self.gen_encode_layer2_batchnorm(gen_encode_layer_2_conv)
-			
-			# gen_encode_layer_3_output = (batch_size, 32, 32, num_filter*4)
-			gen_encode_layer_3_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_2_batchnorm), num_filter*4, name='gen_encode_layer_3_conv')
-			gen_encode_layer_3_batchnorm = self.gen_encode_layer3_batchnorm(gen_encode_layer_3_conv)
-
-			# gen_encode_layer_4_output = (batch_size, 16, 16, num_filter*8)
-			gen_encode_layer_4_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_3_batchnorm), num_filter*8, name='gen_encode_layer_4_conv') 
-			gen_encode_layer_4_batchnorm = self.gen_encode_layer4_batchnorm(gen_encode_layer_4_conv)
-
-			# gen_encode_layer_5_output = (batch_size, 8, 8, num_filter*8)
-			gen_encode_layer_5_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_4_batchnorm), num_filter*8, name='gen_encode_layer_5_conv') 
-			gen_encode_layer_5_batchnorm = self.gen_encode_layer5_batchnorm(gen_encode_layer_5_conv)
-
-			# gen_encode_layer_6_output = (batch_size, 4, 4, num_filter*8)
-			gen_encode_layer_6_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_5_batchnorm), num_filter*8, name='gen_encode_layer_6_conv') 
-			gen_encode_layer_6_batchnorm = self.gen_encode_layer6_batchnorm(gen_encode_layer_6_conv)
-
-			# gen_encode_layer_7_output = (batch_size, 2, 2, num_filter*8)
-			gen_encode_layer_7_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_6_batchnorm), num_filter*8, name='gen_encode_layer_7_conv') 
-			gen_encode_layer_7_batchnorm = self.gen_encode_layer7_batchnorm(gen_encode_layer_7_conv)
-
-			# gen_encode_layer_8_output = (batch_size, 1, 1, num_filter*8)
-			gen_encode_layer_8_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_7_batchnorm), num_filter*8, name='gen_encode_layer_8_conv') 
-			gen_encode_layer_8_batchnorm = self.gen_encode_layer8_batchnorm(gen_encode_layer_8_conv)
-			self.gen_encode_output_mu = relu(gen_encode_layer_8_batchnorm)
-			self.gen_encode_sigma = relu(gen_encode_layer_8_batchnorm)
-
-			eps = tf.random_normal(
-					shape=tf.shape(self.gen_encode_sigma),
-					mean=0, stddev=1, dtype=tf.float32)
-			self.gen_encode_output = self.gen_encode_output_mu + tf.sqrt(tf.exp(self.gen_encode_sigma)) * eps
-
-
 			# ---------- decoder part ----------
 			# gen_decode_conv2d(input_image, output_dimension (by how many filters), scope_name)
 			# input image = [batch_size, 1, 1, num_filter*8]
@@ -439,6 +388,64 @@ class Coop_pix2pix(object):
 			generator_output = tf.nn.tanh(gen_decode_layer_8_deconv)
 
 			return generator_output
+
+
+	def generator_encoder(self, input_image, reuse=False):
+		with tf.variable_scope("gen", reuse=reuse):
+
+			# print("\n------  generator layers shape  ------\n")
+			# print("input_image shape: {}".format(input_image.shape))
+
+
+			num_filter = 64
+
+			# ---------- encoder part ----------
+			# gen_encode_conv2d(input_image, output_dimension (by how many filters), scope_name)
+			# input image = [batch_size, 256, 256, input_pic_dim]
+
+			# gen_encode_layer_1_output = (batch_size, 128, 128, num_filter)
+			gen_encode_layer_1_conv = gen_encode_conv2d(input_image, num_filter, name='gen_encode_layer_1_conv') 
+
+			# gen_encode_layer_2_output = (batch_size, 64, 64, num_filter*2)
+			gen_encode_layer_2_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_1_conv), num_filter*2, name='gen_encode_layer_2_conv') 
+			gen_encode_layer_2_batchnorm = self.gen_encode_layer2_batchnorm(gen_encode_layer_2_conv)
+			
+			# gen_encode_layer_3_output = (batch_size, 32, 32, num_filter*4)
+			gen_encode_layer_3_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_2_batchnorm), num_filter*4, name='gen_encode_layer_3_conv')
+			gen_encode_layer_3_batchnorm = self.gen_encode_layer3_batchnorm(gen_encode_layer_3_conv)
+
+			# gen_encode_layer_4_output = (batch_size, 16, 16, num_filter*8)
+			gen_encode_layer_4_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_3_batchnorm), num_filter*8, name='gen_encode_layer_4_conv') 
+			gen_encode_layer_4_batchnorm = self.gen_encode_layer4_batchnorm(gen_encode_layer_4_conv)
+
+			# gen_encode_layer_5_output = (batch_size, 8, 8, num_filter*8)
+			gen_encode_layer_5_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_4_batchnorm), num_filter*8, name='gen_encode_layer_5_conv') 
+			gen_encode_layer_5_batchnorm = self.gen_encode_layer5_batchnorm(gen_encode_layer_5_conv)
+
+			# gen_encode_layer_6_output = (batch_size, 4, 4, num_filter*8)
+			gen_encode_layer_6_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_5_batchnorm), num_filter*8, name='gen_encode_layer_6_conv') 
+			gen_encode_layer_6_batchnorm = self.gen_encode_layer6_batchnorm(gen_encode_layer_6_conv)
+
+			# gen_encode_layer_7_output = (batch_size, 2, 2, num_filter*8)
+			gen_encode_layer_7_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_6_batchnorm), num_filter*8, name='gen_encode_layer_7_conv') 
+			gen_encode_layer_7_batchnorm = self.gen_encode_layer7_batchnorm(gen_encode_layer_7_conv)
+
+			# gen_encode_layer_8_output = (batch_size, 1, 1, num_filter*8)
+			gen_encode_layer_8_conv = gen_encode_conv2d(leaky_relu(gen_encode_layer_7_batchnorm), num_filter*8, name='gen_encode_layer_8_conv') 
+			gen_encode_layer_8_batchnorm = self.gen_encode_layer8_batchnorm(gen_encode_layer_8_conv)
+			self.gen_encode_output_mu = relu(gen_encode_layer_8_batchnorm)
+			self.gen_encode_sigma = relu(gen_encode_layer_8_batchnorm)
+
+			eps = tf.random_normal(
+				shape=tf.shape(self.gen_encode_sigma),
+				mean=0, stddev=1, dtype=tf.float32)
+				self.gen_encode_output = self.gen_encode_output_mu + tf.sqrt(tf.exp(self.gen_encode_sigma)) * eps
+
+			return self.gen_encode_output_mu, self.gen_encode_output
+
+
+
+
 
 	def recover(self, input_image, reuse=False):
 		with tf.variable_scope("rec", reuse=reuse):
