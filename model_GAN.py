@@ -105,7 +105,6 @@ class Coop_pix2pix(object):
 		self.des_layer_2_batchnorm = batch_norm(name='des_layer_2_batchnorm')
 		self.des_layer_3_batchnorm = batch_norm(name='des_layer_3_batchnorm')
 
-		# batch normalization : deals with poor initialization helps gradient flow
 		self.d_bn1 = batch_norm(name='d_bn1')
 		self.d_bn2 = batch_norm(name='d_bn2')
 		self.d_bn3 = batch_norm(name='d_bn3')
@@ -113,7 +112,6 @@ class Coop_pix2pix(object):
 		self.sigma1 = 0.016
 		self.sigma2 = 0.3
 		self.beta1 = 0.5
-		self.L1_lambda = 100
 
 		self.input_revised_B = tf.placeholder(tf.float32,
 				[self.batch_size, self.image_size, self.image_size, self.input_pic_dim],
@@ -137,19 +135,8 @@ class Coop_pix2pix(object):
 		self.encoder_output_origin = self.generator_encoder(self.input_real_data_A, reuse = False)
 		self.generated_B_origin = self.generator_decoder(self.encoder_output_origin, reuse = False)
 
-		self.encoder_output_case_A = self.add_noise(self.encoder_output_origin, 1)
-		self.encoder_output_case_B = self.add_noise(self.encoder_output_origin, 10)
-		self.encoder_output_case_C = self.add_noise(self.encoder_output_origin, 30)
-		self.encoder_output_case_D = self.add_noise(self.encoder_output_origin, 50)
-		self.encoder_output_case_E = self.add_noise(self.encoder_output_origin, 100)
-		self.encoder_output_case_F = self.add_noise(self.encoder_output_origin, 200)
-
-		self.generated_B_case_A = self.generator_decoder(self.encoder_output_case_A, reuse = True)
-		self.generated_B_case_B = self.generator_decoder(self.encoder_output_case_B, reuse = True)
-		self.generated_B_case_C = self.generator_decoder(self.encoder_output_case_C, reuse = True)
-		self.generated_B_case_D = self.generator_decoder(self.encoder_output_case_D, reuse = True)
-		self.generated_B_case_E = self.generator_decoder(self.encoder_output_case_E, reuse = True)
-		self.generated_B_case_F = self.generator_decoder(self.encoder_output_case_F, reuse = True)
+		self.encoder_output_mu = self.add_noise(self.encoder_output_origin)
+		self.generated_B_mu = self.generator_decoder(self.encoder_output_mu, reuse = True)
 
 		# descriptor
 		# described_real_data_B = self.descriptor(self.input_real_data_B, reuse=False)
@@ -157,10 +144,10 @@ class Coop_pix2pix(object):
 		# described_generated_B = self.descriptor(self.input_generated_B, reuse=True)
 
 		# discriminator
-		self.real_AB = tf.concat([self.input_real_data_A, self.input_real_data_B], 3)
-		self.fake_AB = tf.concat([self.input_real_data_A, self.generated_B_origin], 3)
+        self.real_AB = tf.concat([self.input_real_data_A, self.input_real_data_B], 3)
+        self.fake_AB = tf.concat([self.input_real_data_A, self.fake_B], 3)
 		self.D, self.D_logits = self.discriminator(self.real_AB, reuse=False)
-		self.D_, self.D_logits_ = self.discriminator(self.fake_AB, reuse=True)
+        self.D_, self.D_logits_ = self.discriminator(self.fake_AB, reuse=True)
 
 		# recover
 		self.recovered_A = self.recover(self.input_generated_B, reuse = False)
@@ -198,20 +185,20 @@ class Coop_pix2pix(object):
 		# self.des_loss = tf.reduce_sum(tf.subtract(tf.reduce_mean(described_revised_B, axis=0), tf.reduce_mean(described_real_data_B, axis=0)))
 
 		# self.des_optim = tf.train.AdamOptimizer(self.descriptor_learning_rate, beta1=self.beta1).minimize(self.des_loss, var_list=self.des_vars)
-
+		
 
 		# discriminator loss functions
 		self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits, labels=tf.ones_like(self.D)))
 		self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.zeros_like(self.D_)))
 
-		# self.d_loss_real_sum = tf.summary.scalar("d_loss_real", self.d_loss_real)
-		# self.d_loss_fake_sum = tf.summary.scalar("d_loss_fake", self.d_loss_fake)
+        # self.d_loss_real_sum = tf.summary.scalar("d_loss_real", self.d_loss_real)
+        # self.d_loss_fake_sum = tf.summary.scalar("d_loss_fake", self.d_loss_fake)
 
-		self.dis_loss = self.d_loss_real + self.d_loss_fake
+        self.dis_loss = self.d_loss_real + self.d_loss_fake
 
-		# self.d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
+        # self.d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
 
-		# discriminator loss functions
+        # discriminator loss functions
 		# self.des_loss = tf.reduce_sum(tf.subtract(tf.reduce_mean(described_revised_B, axis=0), tf.reduce_mean(described_real_data_B, axis=0)))
 
 		self.dis_optim = tf.train.AdamOptimizer(self.discriminator_learning_rate, beta1=self.beta1).minimize(self.dis_loss, var_list=self.dis_vars)
@@ -222,23 +209,9 @@ class Coop_pix2pix(object):
 
 
 		# generator loss functions
-		# self.gen_loss = tf.reduce_sum(tf.reduce_mean(1.0 / (2 * self.sigma2 * self.sigma2) * tf.square(self.input_revised_B - self.generated_B_origin), axis=0))
+		self.gen_loss = tf.reduce_sum(tf.reduce_mean(1.0 / (2 * self.sigma2 * self.sigma2) * tf.square(self.input_revised_B - self.generated_B_origin), axis=0))
 		
-		
-		self.gen_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.ones_like(self.D_))) \
-                        + self.L1_lambda * tf.reduce_mean(tf.abs(self.input_real_data_B - self.generated_B_origin))
-
 		self.gen_optim = tf.train.AdamOptimizer(self.generator_learning_rate, beta1=self.beta1).minimize(self.gen_loss, var_list=self.gen_vars)
-
-
-
-
-
-
-
-
-
-
 
 
 		# recover loss functions
@@ -300,37 +273,26 @@ class Coop_pix2pix(object):
 				data_B = batch_images[:, :, :, self.input_pic_dim:self.input_pic_dim+self.output_pic_dim] 
 
 				# step G1: try to generate B domain(target domain) picture
-				generated_B_origin = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_A = sess.run(self.generated_B_case_A , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_B = sess.run(self.generated_B_case_B , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_C = sess.run(self.generated_B_case_C , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_D = sess.run(self.generated_B_case_D , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_E = sess.run(self.generated_B_case_E , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_F = sess.run(self.generated_B_case_F , feed_dict={self.input_real_data_A: data_A}) + data_B
+				generated_B_mu, generated_B_origin = sess.run([self.generated_B_mu, self.generated_B_origin] , feed_dict={self.input_real_data_A: data_A})
 
-				# # step D1: descriptor try to revised image:"generated_B"
-				# revised_B_origin = sess.run(self.des_langevin_revision_output, feed_dict={self.input_generated_B: generated_B_origin})
-				# revised_B_mu = sess.run(self.des_langevin_revision_output, feed_dict={self.input_generated_B: generated_B_mu})
+				# step D1: descriptor try to revised image:"generated_B"
+				revised_B_origin = sess.run(self.des_langevin_revision_output, feed_dict={self.input_generated_B: generated_B_origin})
+				revised_B_mu = sess.run(self.des_langevin_revision_output, feed_dict={self.input_generated_B: generated_B_mu})
 
 				# step R1: recover origin picture
 				recovered_A_origin = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_origin})
-				recovered_A_case_A = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_A})
-				recovered_A_case_B = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_B})
-				recovered_A_case_C = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_C})
-				recovered_A_case_D = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_D})
-				recovered_A_case_E = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_E})
-				recovered_A_case_F = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_F})
+				recovered_A_mu = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_mu})
 				
 
 
 
-				# step D2: update discriminator net
-				discriminator_loss , _ = sess.run([self.dis_loss, self.dis_optim],
-                                  		feed_dict={self.input_real_data_A: data_A, self.input_real_data_B: data_B})
+				# step D2: update descriptor net
+				descriptor_loss , _ = sess.run([self.des_loss, self.des_optim],
+                                  		feed_dict={self.input_real_data_B: data_B, self.input_revised_B: revised_B_origin})
 
 				# step G2: update generator net
 				generator_loss , _ = sess.run([self.gen_loss, self.gen_optim],
-                                  		feed_dict={self.input_real_data_A: data_A, self.input_real_data_B: data_B}) # self.input_revised_B: revised_B,
+                                  		feed_dict={self.input_real_data_A: data_A, self.input_revised_B: revised_B_origin}) # self.input_revised_B: revised_B,
 
 				# self.input_generated_B: generated_B,
 
@@ -352,7 +314,7 @@ class Coop_pix2pix(object):
 					.format(epoch, index, self.num_batch, 
 						str(datetime.timedelta(seconds=int(time.time()-start_time))),
 							str(datetime.timedelta(seconds=int((time.time()-start_time)*(counter_end-(self.epoch_startpoint*self.num_batch)-counter)/counter))),
-								 discriminator_loss, generator_loss, recover_loss))
+								 descriptor_loss, generator_loss, recover_loss))
 
 				# if need calculate time interval
 				# start_time = time.time()
@@ -376,46 +338,17 @@ class Coop_pix2pix(object):
 					save_images(data_B, [self.batch_size, 1],
 						'./{}/ep{:02d}_{:04d}_02_input_data_B.png'.format(self.output_dir, epoch, index))
 					save_images(generated_B_origin, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_030_generated_B_origin.png'.format(self.output_dir, epoch, index))
-					# save_images(revised_B_origin, [self.batch_size, 1],
-					# 	'./{}/ep{:02d}_{:04d}_04_revised_B_origin.png'.format(self.output_dir, epoch, index))
+						'./{}/ep{:02d}_{:04d}_03_generated_B_origin.png'.format(self.output_dir, epoch, index))
+					save_images(revised_B_origin, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_04_revised_B_origin.png'.format(self.output_dir, epoch, index))
 					save_images(recovered_A_origin, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_031_recovered_A_origin.png'.format(self.output_dir, epoch, index))
-
-					save_images(generated_B_case_A, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_040_generated_B_case_A.png'.format(self.output_dir, epoch, index))
-					# save_images(revised_B_mu, [self.batch_size, 1],
-					# 	'./{}/ep{:02d}_{:04d}_07_revised_B_mu.png'.format(self.output_dir, epoch, index))
-					save_images(recovered_A_case_A, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_041_recovered_A_case_A.png'.format(self.output_dir, epoch, index))
-
-					save_images(generated_B_case_B, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_050_generated_B_case_B.png'.format(self.output_dir, epoch, index))
-					save_images(recovered_A_case_B, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_051_recovered_A_case_B.png'.format(self.output_dir, epoch, index))
-
-					save_images(generated_B_case_C, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_060_generated_B_case_C.png'.format(self.output_dir, epoch, index))
-					save_images(recovered_A_case_C, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_061_recovered_A_case_C.png'.format(self.output_dir, epoch, index))
-
-					save_images(generated_B_case_D, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_070_generated_B_case_D.png'.format(self.output_dir, epoch, index))
-					save_images(recovered_A_case_D, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_071_recovered_A_case_D.png'.format(self.output_dir, epoch, index))
-
-					save_images(generated_B_case_E, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_080_generated_B_case_E.png'.format(self.output_dir, epoch, index))
-					save_images(recovered_A_case_E, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_081_recovered_A_case_E.png'.format(self.output_dir, epoch, index))
-
-					save_images(generated_B_case_F, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_090_generated_B_case_F.png'.format(self.output_dir, epoch, index))
-					save_images(recovered_A_case_F, [self.batch_size, 1],
-						'./{}/ep{:02d}_{:04d}_091_recovered_A_case_F.png'.format(self.output_dir, epoch, index))
-
-
-
+						'./{}/ep{:02d}_{:04d}_05_recovered_A_origin.png'.format(self.output_dir, epoch, index))
+					save_images(generated_B_mu, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_06_generated_B_mu.png'.format(self.output_dir, epoch, index))
+					save_images(revised_B_mu, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_07_revised_B_mu.png'.format(self.output_dir, epoch, index))
+					save_images(recovered_A_mu, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_08_recovered_A_mu.png'.format(self.output_dir, epoch, index))
 					# save_images(lang_1_output, [self.batch_size, 1],
 					# 	'./{}/ep{:02d}_{:04d}_099_lang_001.png'.format(self.output_dir, epoch, index))
 					# save_images(lang_10_output, [self.batch_size, 1],
@@ -544,21 +477,14 @@ class Coop_pix2pix(object):
 
 			return self.gen_encode_output
 
-	def add_noise(self, gen_encode_output, stddev):
+	def add_noise(self, gen_encode_output):
 		# self.gen_encode_output_origin = relu(gen_encode_layer_8_batchnorm)
 		# self.gen_encode_sigma = relu(gen_encode_layer_8_batchnorm)
 
 		eps = tf.random_normal(
 			shape=tf.shape(gen_encode_output),
-			mean=0, stddev=stddev, dtype=tf.float32)
+			mean=0, stddev=1, dtype=tf.float32)
 		gen_encode_output_mu = gen_encode_output + tf.sqrt(tf.exp(gen_encode_output)) * eps
-
-		# print(tf.sqrt(tf.exp(gen_encode_output)) * eps)
-
-		# if stddev == 200:
-		# 	# print(gen_encode_output_mu)
-		# 	gen_encode_output_mu = tf.add(gen_encode_output_mu, 100)
-		# 	# print(gen_encode_output_mu)
 
 		return gen_encode_output_mu
 
@@ -665,88 +591,88 @@ class Coop_pix2pix(object):
 
 			return recover_output
 
-	def discriminator(self, input_image, reuse=False):
+    def discriminator(self, input_image, reuse=False):
 
-		with tf.variable_scope("discriminator") as scope:
+        with tf.variable_scope("discriminator") as scope:
 
-			num_filter = 64
+        	num_filter = 64
 
-			# image is 256 x 256 x (input_c_dim + output_c_dim)
-			if reuse:
-				tf.get_variable_scope().reuse_variables()
-			else:
-				assert tf.get_variable_scope().reuse == False
+            # image is 256 x 256 x (input_c_dim + output_c_dim)
+            if reuse:
+                tf.get_variable_scope().reuse_variables()
+            else:
+                assert tf.get_variable_scope().reuse == False
 
-			h0 = leaky_relu(conv2d(input_image, num_filter, name='d_h0_conv'))
-			# h0 is (128 x 128 x self.df_dim)
-			h1 = leaky_relu(self.d_bn1(conv2d(h0, num_filter*2, name='d_h1_conv')))
-			# h1 is (64 x 64 x self.df_dim*2)
-			h2 = leaky_relu(self.d_bn2(conv2d(h1, num_filter*4, name='d_h2_conv')))
-			# h2 is (32x 32 x self.df_dim*4)
-			h3 = leaky_relu(self.d_bn3(conv2d(h2, num_filter*8, d_h=1, d_w=1, name='d_h3_conv')))
-			# h3 is (16 x 16 x self.df_dim*8)
-			h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
+            h0 = leaky_relu(conv2d(image, num_filter, name='d_h0_conv'))
+            # h0 is (128 x 128 x self.df_dim)
+            h1 = leaky_relu(self.d_bn1(conv2d(h0, num_filter*2, name='d_h1_conv')))
+            # h1 is (64 x 64 x self.df_dim*2)
+            h2 = leaky_relu(self.d_bn2(conv2d(h1, num_filter*4, name='d_h2_conv')))
+            # h2 is (32x 32 x self.df_dim*4)
+            h3 = leaky_relu(self.d_bn3(conv2d(h2, num_filter*8, d_h=1, d_w=1, name='d_h3_conv')))
+            # h3 is (16 x 16 x self.df_dim*8)
+            h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
 
-			return tf.nn.sigmoid(h4), h4
+            return tf.nn.sigmoid(h4), h4
 
 
-	def descriptor(self, input_image, reuse=False):
-		with tf.variable_scope('des', reuse=reuse):
+	# def descriptor(self, input_image, reuse=False):
+	# 	with tf.variable_scope('des', reuse=reuse):
 
-			# print("\n------  descriptor layers shape  ------\n")
-			# print("input_image shape: {}".format(input_image.shape))
+	# 		# print("\n------  descriptor layers shape  ------\n")
+	# 		# print("input_image shape: {}".format(input_image.shape))
 
-			num_filter = 64
+	# 		num_filter = 64
 
-			# ---------- descriptor part ----------
-			# descriptor_conv2d(input_image, output_dimension (by how many filters), scope_name)
-			# input image = [batch_size, 256, 256, input_pic_dim]
+	# 		# ---------- descriptor part ----------
+	# 		# descriptor_conv2d(input_image, output_dimension (by how many filters), scope_name)
+	# 		# input image = [batch_size, 256, 256, input_pic_dim]
 
-			# des_layer_0_conv = (batch_size, 128, 128, num_filter)
-			des_layer_0_conv = des_conv2d(input_image, num_filter, name='des_layer_0_conv')
+	# 		# des_layer_0_conv = (batch_size, 128, 128, num_filter)
+	# 		des_layer_0_conv = des_conv2d(input_image, num_filter, name='des_layer_0_conv')
 
-			# des_layer_1_conv = (batch_size, 64, 64, num_filter*2)
-			des_layer_1_conv = des_conv2d(leaky_relu(des_layer_0_conv), num_filter*2, name='des_layer_1_conv')
-			des_layer_1_batchnorm = self.des_layer_1_batchnorm(des_layer_1_conv)
+	# 		# des_layer_1_conv = (batch_size, 64, 64, num_filter*2)
+	# 		des_layer_1_conv = des_conv2d(leaky_relu(des_layer_0_conv), num_filter*2, name='des_layer_1_conv')
+	# 		des_layer_1_batchnorm = self.des_layer_1_batchnorm(des_layer_1_conv)
 
-			# des_layer_2_conv = (batch_size, 32, 32, num_filter*4)
-			des_layer_2_conv = des_conv2d(leaky_relu(des_layer_1_batchnorm), num_filter*4, name='des_layer_2_conv')
-			des_layer_2_batchnorm = self.des_layer_2_batchnorm(des_layer_2_conv)
+	# 		# des_layer_2_conv = (batch_size, 32, 32, num_filter*4)
+	# 		des_layer_2_conv = des_conv2d(leaky_relu(des_layer_1_batchnorm), num_filter*4, name='des_layer_2_conv')
+	# 		des_layer_2_batchnorm = self.des_layer_2_batchnorm(des_layer_2_conv)
 			
-			# des_layer_3_conv = (batch_size, 16, 16, num_filter*8)
-			des_layer_3_conv = des_conv2d(leaky_relu(des_layer_2_batchnorm), num_filter*8, name='des_layer_3_conv')
-			des_layer_3_batchnorm = self.des_layer_3_batchnorm(des_layer_3_conv)
+	# 		# des_layer_3_conv = (batch_size, 16, 16, num_filter*8)
+	# 		des_layer_3_conv = des_conv2d(leaky_relu(des_layer_2_batchnorm), num_filter*8, name='des_layer_3_conv')
+	# 		des_layer_3_batchnorm = self.des_layer_3_batchnorm(des_layer_3_conv)
 
-			# linearization the descriptor result
-			# # print(des_layer_3_batchnorm.shape) # (1, 16, 16, 512)
-			# # print(des_layer_3_reshape.shape) # (1, 131072)
+	# 		# linearization the descriptor result
+	# 		# # print(des_layer_3_batchnorm.shape) # (1, 16, 16, 512)
+	# 		# # print(des_layer_3_reshape.shape) # (1, 131072)
 
-			des_layer_4_fully_connected = des_fully_connected(leaky_relu(des_layer_3_batchnorm), 100, name="des_layer_4_fully_connected")
+	# 		des_layer_4_fully_connected = des_fully_connected(leaky_relu(des_layer_3_batchnorm), 100, name="des_layer_4_fully_connected")
 
-			return des_layer_4_fully_connected 
+	# 		return des_layer_4_fully_connected 
 
-	def des_langevin_revision(self, input_image_arg):
-		# print("input_image_arg.shape: ",input_image_arg.shape)
-		# self.pic_list = []
-		def cond(i, input_image):
-			return tf.less(i, self.langevin_revision_steps)
+	# def des_langevin_revision(self, input_image_arg):
+	# 	# print("input_image_arg.shape: ",input_image_arg.shape)
+	# 	# self.pic_list = []
+	# 	def cond(i, input_image):
+	# 		return tf.less(i, self.langevin_revision_steps)
 
-		def body(i, input_image):
-			# print("input_image.shape: ",input_image.shape)
-			# save_images(input_image, [self.batch_size, 1],
-			# 	'./{}/test.png'.format(self.output_dir))
-			noise = tf.random_normal(shape=[1, self.image_size, self.image_size, 3], name='noise')
-			descripted_input_image = self.descriptor(input_image, reuse=True)
+	# 	def body(i, input_image):
+	# 		# print("input_image.shape: ",input_image.shape)
+	# 		# save_images(input_image, [self.batch_size, 1],
+	# 		# 	'./{}/test.png'.format(self.output_dir))
+	# 		noise = tf.random_normal(shape=[1, self.image_size, self.image_size, 3], name='noise')
+	# 		descripted_input_image = self.descriptor(input_image, reuse=True)
 
-			grad = tf.gradients(descripted_input_image, input_image, name='grad_des')[0]
-			input_image = input_image - 0.5 * self.langevin_step_size * self.langevin_step_size * (input_image / self.sigma1 / self.sigma1 - grad) + self.langevin_step_size * noise
-			# print("input_image.shape: ",input_image.shape)
-			return tf.add(i, 1), input_image
+	# 		grad = tf.gradients(descripted_input_image, input_image, name='grad_des')[0]
+	# 		input_image = input_image - 0.5 * self.langevin_step_size * self.langevin_step_size * (input_image / self.sigma1 / self.sigma1 - grad) + self.langevin_step_size * noise
+	# 		# print("input_image.shape: ",input_image.shape)
+	# 		return tf.add(i, 1), input_image
 
-		with tf.name_scope("des_langevin_revision"):
-			i = tf.constant(0)
-			i, input_image = tf.while_loop(cond, body, [i, input_image_arg])
-			return input_image
+	# 	with tf.name_scope("des_langevin_revision"):
+	# 		i = tf.constant(0)
+	# 		i, input_image = tf.while_loop(cond, body, [i, input_image_arg])
+	# 		return input_image
 
 
 

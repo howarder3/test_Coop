@@ -14,8 +14,9 @@ tf.app.flags.DEFINE_integer('input_pic_dim',3,'input picture dimension : colorfu
 tf.app.flags.DEFINE_integer('output_pic_dim',3,'output picture dimension : colorful = 3, grayscale = 1')
 
 # learning rate
-tf.app.flags.DEFINE_float('descriptor_learning_rate',0.01,'descriptor learning rate') # 0.01 # 0.007 # 1e-6 # 0.01 # 0.001 # 1e-6 # 0.01 # 0.007
+tf.app.flags.DEFINE_float('discriminator_learning_rate',0.01,'discriminator learning rate') # 0.01 # 0.007 # 1e-6 # 0.01 # 0.001 # 1e-6 # 0.01 # 0.007
 tf.app.flags.DEFINE_float('generator_learning_rate',0.0001,'generator learning rate') # 0.0001 # 1e-5 # 0.0001 # 1e-4 # 0.0001 # 0.0001
+tf.app.flags.DEFINE_float('recover_learning_rate',0.0001,'recover learning rate') # 0.0001 # 1e-5 # 0.0001 # 1e-4 # 0.0001 # 0.0001
 tf.app.flags.DEFINE_integer('langevin_revision_steps',30,'langevin revision steps') #100 # 30 # 10
 tf.app.flags.DEFINE_float('langevin_step_size',0.002,'langevin step size') # 0.002
 
@@ -76,8 +77,9 @@ def main(_):
 				input_pic_dim = FLAGS.input_pic_dim, output_pic_dim = FLAGS.output_pic_dim,
 				langevin_revision_steps = FLAGS.langevin_revision_steps,
 				langevin_step_size = FLAGS.langevin_step_size,
-				descriptor_learning_rate = FLAGS.descriptor_learning_rate,
+				discriminator_learning_rate = FLAGS.discriminator_learning_rate,
 				generator_learning_rate = FLAGS.generator_learning_rate,
+				recover_learning_rate = FLAGS.recover_learning_rate,
 				dataset_name=FLAGS.dataset_name, dataset_dir =FLAGS.dataset_dir, 
 				output_dir=FLAGS.output_dir, checkpoint_dir=FLAGS.checkpoint_dir, log_dir=FLAGS.log_dir)
 
