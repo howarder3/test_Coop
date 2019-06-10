@@ -320,6 +320,9 @@ class Coop_pix2pix(object):
 				recovered_A_case_D = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_D})
 				recovered_A_case_E = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_E})
 				recovered_A_case_F = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_F})
+
+
+				test_color = tf.ones(shape = generated_B_origin , tf.int32)
 				
 
 
@@ -370,6 +373,8 @@ class Coop_pix2pix(object):
 					# lang_50_output = sess.run(self.lang_50_output, feed_dict={self.input_revised_B: generated_B})
 					# lang_100_output = sess.run(self.lang_100_output, feed_dict={self.input_revised_B: generated_B})
 					# lang_200_output = sess.run(self.lang_200_output, feed_dict={self.input_revised_B: generated_B})
+					save_images(test_color, [self.batch_size, 1],
+						'./{}/test_color.png'.format(self.output_dir, epoch, index))
 
 					save_images(data_A, [self.batch_size, 1],
 						'./{}/ep{:02d}_{:04d}_01_input_data_A.png'.format(self.output_dir, epoch, index))
