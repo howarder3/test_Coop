@@ -40,6 +40,17 @@ def load_image(image_path):
 
     return img_A, img_B
 
+def load_one_data(image_path, flip=True, is_test=False):
+    print("Load color file: {}".format(image_path))
+    img = load_one_image(image_path)
+    img = img/127.5 - 1.
+
+    return img
+
+def load_one_image(image_path):
+    img = imread(image_path)
+    return img
+
 def imread(path, is_grayscale = False):
     if (is_grayscale):
         return scipy.misc.imread(path, flatten = True).astype(np.float)

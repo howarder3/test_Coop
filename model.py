@@ -115,9 +115,9 @@ class Coop_pix2pix(object):
 		self.beta1 = 0.5
 		self.L1_lambda = 100
 
-		self.input_revised_B = tf.placeholder(tf.float32,
-				[self.batch_size, self.image_size, self.image_size, self.input_pic_dim],
-				name='input_revised_B')
+		# self.input_revised_B = tf.placeholder(tf.float32,
+		# 		[self.batch_size, self.image_size, self.image_size, self.input_pic_dim],
+		# 		name='input_revised_B')
 		self.input_generated_B = tf.placeholder(tf.float32,
 				[self.batch_size, self.image_size, self.image_size, self.input_pic_dim],
 				name='input_generated_B')
@@ -127,6 +127,13 @@ class Coop_pix2pix(object):
 		self.input_real_data_A = tf.placeholder(tf.float32,
 				[self.batch_size, self.image_size, self.image_size, self.input_pic_dim],
 				name='input_real_data_A')
+		self.input_encoder_mu = tf.placeholder(tf.float32,
+				[1, 1, 1, self.input_pic_dim],
+				name='input_encoder_mu')
+
+
+
+
 		# self.input_recovered_A = tf.placeholder(tf.float32,
 		# 		[self.batch_size, self.image_size, self.image_size, self.input_pic_dim],
 		# 		name='input_recovered_A')
@@ -137,19 +144,22 @@ class Coop_pix2pix(object):
 		self.encoder_output_origin = self.generator_encoder(self.input_real_data_A, reuse = False)
 		self.generated_B_origin = self.generator_decoder(self.encoder_output_origin, reuse = False)
 
-		self.encoder_output_case_A = self.add_noise(self.encoder_output_origin, 1)
-		self.encoder_output_case_B = self.add_noise(self.encoder_output_origin, 10)
-		self.encoder_output_case_C = self.add_noise(self.encoder_output_origin, 30)
-		self.encoder_output_case_D = self.add_noise(self.encoder_output_origin, 50)
-		self.encoder_output_case_E = self.add_noise(self.encoder_output_origin, 100)
-		self.encoder_output_case_F = self.add_noise(self.encoder_output_origin, 200)
+		self.generated_B_mu = self.generator_decoder(self.input_encoder_mu, reuse = True)
 
-		self.generated_B_case_A = self.generator_decoder(self.encoder_output_case_A, reuse = True)
-		self.generated_B_case_B = self.generator_decoder(self.encoder_output_case_B, reuse = True)
-		self.generated_B_case_C = self.generator_decoder(self.encoder_output_case_C, reuse = True)
-		self.generated_B_case_D = self.generator_decoder(self.encoder_output_case_D, reuse = True)
-		self.generated_B_case_E = self.generator_decoder(self.encoder_output_case_E, reuse = True)
-		self.generated_B_case_F = self.generator_decoder(self.encoder_output_case_F, reuse = True)
+		# self.encoder_output_case_A = self.add_noise(self.encoder_output_origin, 1)
+		# self.encoder_output_case_B = self.add_noise(self.encoder_output_origin, 10)
+		# self.encoder_output_case_C = self.add_noise(self.encoder_output_origin, 30)
+		# self.encoder_output_case_D = self.add_noise(self.encoder_output_origin, 50)
+		# self.encoder_output_case_E = self.add_noise(self.encoder_output_origin, 100)
+		# self.encoder_output_case_F = self.add_noise(self.encoder_output_origin, 200)
+
+		# self.generated_B_case_A = self.generator_decoder(self.encoder_output_case_A, reuse = True)
+		# self.generated_B_case_B = self.generator_decoder(self.encoder_output_case_B, reuse = True)
+		# self.generated_B_case_C = self.generator_decoder(self.encoder_output_case_C, reuse = True)
+		# self.generated_B_case_D = self.generator_decoder(self.encoder_output_case_D, reuse = True)
+		# self.generated_B_case_E = self.generator_decoder(self.encoder_output_case_E, reuse = True)
+		# self.generated_B_case_F = self.generator_decoder(self.encoder_output_case_F, reuse = True)
+		# self.generated_B_case_G = self.generator_decoder(self.encoder_output_case_G, reuse = True)
 
 		# descriptor
 		# described_real_data_B = self.descriptor(self.input_real_data_B, reuse=False)
@@ -176,7 +186,7 @@ class Coop_pix2pix(object):
 
 		t_vars = tf.trainable_variables()
 		self.dis_vars = [var for var in t_vars if var.name.startswith('discriminator')]
-		self.des_vars = [var for var in t_vars if var.name.startswith('des')]
+		# self.des_vars = [var for var in t_vars if var.name.startswith('des')]
 		self.gen_vars = [var for var in t_vars if var.name.startswith('gen')]
 		self.rec_vars = [var for var in t_vars if var.name.startswith('rec')]
 
@@ -217,8 +227,8 @@ class Coop_pix2pix(object):
 		self.dis_optim = tf.train.AdamOptimizer(self.discriminator_learning_rate, beta1=self.beta1).minimize(self.dis_loss, var_list=self.dis_vars)
 
 		# Compute Mean square error(MSE) for generated data and real data
-		self.mse_loss = tf.reduce_mean(
-            tf.pow(tf.subtract(tf.reduce_mean(self.input_generated_B, axis=0), tf.reduce_mean(self.input_revised_B, axis=0)), 2))
+		# self.mse_loss = tf.reduce_mean(
+  #           tf.pow(tf.subtract(tf.reduce_mean(self.input_generated_B, axis=0), tf.reduce_mean(self.input_revised_B, axis=0)), 2))
 
 
 		# generator loss functions
@@ -231,16 +241,6 @@ class Coop_pix2pix(object):
 		self.gen_optim = tf.train.AdamOptimizer(self.generator_learning_rate, beta1=self.beta1).minimize(self.gen_loss, var_list=self.gen_vars)
 
 
-
-
-
-
-
-
-
-
-
-
 		# recover loss functions
 		self.rec_loss = tf.reduce_mean((self.recovered_A - self.input_real_data_A)**2)
 
@@ -250,6 +250,7 @@ class Coop_pix2pix(object):
 
 		self.saver = tf.train.Saver(max_to_keep=10)
 
+
 	def train(self,sess):
 
 		# build model
@@ -257,6 +258,24 @@ class Coop_pix2pix(object):
 
 		# prepare training data
 		training_data = glob('{}/{}/train/*.jpg'.format(self.dataset_dir, self.dataset_name))
+
+		# prepare color data
+		img_list = []
+		color_data = glob('./color/*.png')
+		for i in xrange(10): # num_batch
+			# find picture list index*self.batch_size to (index+1)*self.batch_size (one batch)
+			# if batch_size = 2, get one batch = batch[0], batch[1]
+			color_files = color_data[i:(i+1)] 
+
+			color_batch = [load_one_data(color_file) for color_file in color_files]
+			color_batch_images = np.array(color_batch).astype(np.float32)
+			# print(color_batch_images.shape)
+
+			# for i in xrange(color_batch_images.shape[0]):
+			img = color_batch_images[:, :, :, : 3] 
+			img_list.append(img)
+			# print(img.shape)
+			# save_images(img, [self.batch_size, 1], './{}/test_color_{}.png'.format(self.output_dir, i))
 
 		# iteration(num_batch) = picture_amount/batch_size
 		self.num_batch = min(len(training_data), self.picture_amount) // self.batch_size
@@ -291,22 +310,37 @@ class Coop_pix2pix(object):
 				# if batch_size = 2, get one batch = batch[0], batch[1]
 				batch_files = training_data[index*self.batch_size:(index+1)*self.batch_size] 
 
+
 				# load data : list format, amount = one batch
 				batch = [load_data(batch_file) for batch_file in batch_files]
 				batch_images = np.array(batch).astype(np.float32)
+				# print(batch_images.shape)
 
 				# data domain A and data domain B
 				data_A = batch_images[:, :, :, : self.input_pic_dim] 
 				data_B = batch_images[:, :, :, self.input_pic_dim:self.input_pic_dim+self.output_pic_dim] 
+				# print(data_A.shape)
 
 				# step G1: try to generate B domain(target domain) picture
 				generated_B_origin = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_A = sess.run(self.generated_B_case_A , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_B = sess.run(self.generated_B_case_B , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_C = sess.run(self.generated_B_case_C , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_D = sess.run(self.generated_B_case_D , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_E = sess.run(self.generated_B_case_E , feed_dict={self.input_real_data_A: data_A})
-				generated_B_case_F = sess.run(self.generated_B_case_F , feed_dict={self.input_real_data_A: data_A}) + data_B
+				generated_B_case_A = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[0]
+				generated_B_case_B = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[1] 
+				generated_B_case_C = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[2]
+				generated_B_case_D = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[3]
+				generated_B_case_E = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[4]
+				generated_B_case_F = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[5]
+				generated_B_case_G = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[6]
+				generated_B_case_H = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[7]
+				generated_B_case_I = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[8]
+				generated_B_case_J = sess.run(self.generated_B_origin , feed_dict={self.input_real_data_A: data_A}) + img_list[9]
+				# generated_B_case_A = sess.run(self.generated_B_case_A , feed_dict={self.input_real_data_A: data_A}) + img_list[0]
+				# generated_B_case_B = sess.run(self.generated_B_case_B , feed_dict={self.input_real_data_A: data_A}) + img_list[1] 
+				# generated_B_case_C = sess.run(self.generated_B_case_C , feed_dict={self.input_real_data_A: data_A}) + img_list[2]
+				# generated_B_case_D = sess.run(self.generated_B_case_D , feed_dict={self.input_real_data_A: data_A}) + img_list[3]
+				# generated_B_case_E = sess.run(self.generated_B_case_E , feed_dict={self.input_real_data_A: data_A}) + img_list[4]
+				# generated_B_case_F = sess.run(self.generated_B_case_F , feed_dict={self.input_real_data_A: data_A}) + img_list[5]
+				# generated_B_case_G = sess.run(self.generated_B_case_G , feed_dict={self.input_real_data_A: data_A}) + img_list[6]
+
 
 				# # step D1: descriptor try to revised image:"generated_B"
 				# revised_B_origin = sess.run(self.des_langevin_revision_output, feed_dict={self.input_generated_B: generated_B_origin})
@@ -320,9 +354,33 @@ class Coop_pix2pix(object):
 				recovered_A_case_D = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_D})
 				recovered_A_case_E = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_E})
 				recovered_A_case_F = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_F})
+				recovered_A_case_G = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_G})
+				recovered_A_case_H = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_H})
+				recovered_A_case_I = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_I})
+				recovered_A_case_J = sess.run(self.recovered_A, feed_dict={self.input_generated_B: generated_B_case_J})
 
 
-				test_color = tf.ones(shape = generated_B_origin , tf.int32)
+				# print(list(generated_B_origin.shape))
+				# print(type(generated_B_origin))
+				# test_color = sess.run(tf.zeros(list(generated_B_origin.shape) , tf.int32))
+				# test_color = np.full(generated_B_origin.shape, 0)
+
+				# test_color_2 = np.full(generated_B_origin.shape, -1)
+				# test_color_3 = np.full(generated_B_origin.shape, 1)
+				# test_color_4 = np.full(generated_B_origin.shape, 0.5)
+				# test_color_5 = np.full(generated_B_origin.shape, -0.5)
+				
+				# print(test_color)
+				# print(test_color_2)
+				# print(test_color_3)
+				# print(test_color_4)
+				# print(generated_B_origin)
+
+
+
+				# print(type(test_color))
+				
+
 				
 
 
@@ -340,8 +398,37 @@ class Coop_pix2pix(object):
 				# print(descriptor_loss)
 
 				# step R2: update recover net
-				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim],
-                                  		feed_dict={self.input_generated_B: generated_B_origin, self.input_real_data_A: data_A})
+				rec_list = []
+
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_origin, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_A, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_B, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_C, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_D, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_E, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_F, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_G, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_H, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_I, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+				recover_loss , _ = sess.run([self.rec_loss, self.rec_optim], feed_dict={self.input_generated_B: generated_B_case_J, self.input_real_data_A: data_A})
+				rec_list.append(recover_loss)
+
+
+				recover_loss_avg = sum(rec_list)/len(rec_list)
+				# print(sum(rec_list), len(rec_list))
+
+				# recover_loss , _ = sess.run([self.rec_loss, self.rec_optim],
+    #                               		feed_dict={self.input_generated_B: generated_B_origin, self.input_real_data_A: data_A})
 
 
 				# Compute Mean square error(MSE) for generated data and revised data
@@ -351,11 +438,11 @@ class Coop_pix2pix(object):
 				# put picture in sample picture
 				# sample_results[index : (index + 1)] = revised_B
 
-				print("Epoch: [{:4d}] [{:4d}/{:4d}] time: {}, eta: {}, d_loss: {:.4f}, g_loss: {:.4f}, rec_loss: {:.4f}"
+				print("Epoch: [{:4d}] [{:4d}/{:4d}] time: {}, eta: {}, d_loss: {:.4f}, g_loss: {:.4f}, r_loss_avg: {:.4f}"
 					.format(epoch, index, self.num_batch, 
 						str(datetime.timedelta(seconds=int(time.time()-start_time))),
 							str(datetime.timedelta(seconds=int((time.time()-start_time)*(counter_end-(self.epoch_startpoint*self.num_batch)-counter)/counter))),
-								 discriminator_loss, generator_loss, recover_loss))
+								 discriminator_loss, generator_loss, recover_loss_avg))
 
 				# if need calculate time interval
 				# start_time = time.time()
@@ -373,8 +460,36 @@ class Coop_pix2pix(object):
 					# lang_50_output = sess.run(self.lang_50_output, feed_dict={self.input_revised_B: generated_B})
 					# lang_100_output = sess.run(self.lang_100_output, feed_dict={self.input_revised_B: generated_B})
 					# lang_200_output = sess.run(self.lang_200_output, feed_dict={self.input_revised_B: generated_B})
-					save_images(test_color, [self.batch_size, 1],
-						'./{}/test_color.png'.format(self.output_dir, epoch, index))
+					# save_images(test_color, [self.batch_size, 1], './{}/test_color.png'.format(self.output_dir))
+					# save_images(test_color_2, [self.batch_size, 1], './{}/test_color_2.png'.format(self.output_dir))
+					# save_images(test_color_3, [self.batch_size, 1], './{}/test_color_3.png'.format(self.output_dir))
+					# save_images(test_color_4, [self.batch_size, 1], './{}/test_color_4.png'.format(self.output_dir))
+					# save_images(test_color_5, [self.batch_size, 1], './{}/test_color_5.png'.format(self.output_dir))
+					# save_images(test_color_6, [self.batch_size, 1], './{}/test_color_6.png'.format(self.output_dir))
+					# save_images(test_color_7, [self.batch_size, 1], './{}/test_color_7.png'.format(self.output_dir))
+
+					# color_data = glob('./color/*.png')
+					# # print(color_data)
+					
+					# # print(color_files)
+					# # load data : list format, amount = one batch
+
+
+					# for i in xrange(7): # num_batch
+					# 	# find picture list index*self.batch_size to (index+1)*self.batch_size (one batch)
+					# 	# if batch_size = 2, get one batch = batch[0], batch[1]
+					# 	color_files = color_data[i:(i+1)] 
+
+					# 	color_batch = [load_one_data(color_file) for color_file in color_files]
+					# 	color_batch_images = np.array(color_batch).astype(np.float32)
+					# 	print(color_batch_images.shape)
+
+					# 	# for i in xrange(color_batch_images.shape[0]):
+					# 	img = color_batch_images[:, :, :, : 3] 
+					# 	print(img.shape)
+					# 	save_images(img, [self.batch_size, 1], './{}/test_color_{}.png'.format(self.output_dir, i))
+
+
 
 					save_images(data_A, [self.batch_size, 1],
 						'./{}/ep{:02d}_{:04d}_01_input_data_A.png'.format(self.output_dir, epoch, index))
@@ -418,6 +533,26 @@ class Coop_pix2pix(object):
 						'./{}/ep{:02d}_{:04d}_090_generated_B_case_F.png'.format(self.output_dir, epoch, index))
 					save_images(recovered_A_case_F, [self.batch_size, 1],
 						'./{}/ep{:02d}_{:04d}_091_recovered_A_case_F.png'.format(self.output_dir, epoch, index))
+
+					save_images(generated_B_case_G, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_100_generated_B_case_G.png'.format(self.output_dir, epoch, index))
+					save_images(recovered_A_case_G, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_101_recovered_A_case_G.png'.format(self.output_dir, epoch, index))
+
+					save_images(generated_B_case_H, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_110_generated_B_case_E.png'.format(self.output_dir, epoch, index))
+					save_images(recovered_A_case_H, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_111_recovered_A_case_E.png'.format(self.output_dir, epoch, index))
+
+					save_images(generated_B_case_I, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_120_generated_B_case_F.png'.format(self.output_dir, epoch, index))
+					save_images(recovered_A_case_I, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_121_recovered_A_case_F.png'.format(self.output_dir, epoch, index))
+
+					save_images(generated_B_case_J, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_130_generated_B_case_G.png'.format(self.output_dir, epoch, index))
+					save_images(recovered_A_case_J, [self.batch_size, 1],
+						'./{}/ep{:02d}_{:04d}_131_recovered_A_case_G.png'.format(self.output_dir, epoch, index))
 
 
 
